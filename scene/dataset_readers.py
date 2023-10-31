@@ -15,6 +15,7 @@ from PIL import Image
 from typing import NamedTuple
 from scene.colmap_loader import read_extrinsics_text, read_intrinsics_text, qvec2rotmat, \
     read_extrinsics_binary, read_intrinsics_binary, read_points3D_binary, read_points3D_text
+from scene.rgbd_loaders import readRGBDConfig, loadPlyfromRGBD
 from utils.graphics_utils import getWorld2View2, focal2fov, fov2focal
 import numpy as np
 import json
@@ -22,6 +23,7 @@ from pathlib import Path
 from plyfile import PlyData, PlyElement
 from utils.sh_utils import SH2RGB
 from scene.gaussian_model import BasicPointCloud
+from scipy.spatial.transform import Rotation as ScipyRotation
 
 class CameraInfo(NamedTuple):
     uid: int
@@ -65,6 +67,7 @@ def getNerfppNorm(cam_info):
 
     return {"translate": translate, "radius": radius}
 
+
 def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder):
     cam_infos = []
     for idx, key in enumerate(cam_extrinsics):
@@ -103,6 +106,7 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder):
         cam_infos.append(cam_info)
     sys.stdout.write('\n')
     return cam_infos
+
 
 def fetchPly(path):
     plydata = PlyData.read(path)
@@ -254,7 +258,103 @@ def readNerfSyntheticInfo(path, white_background, eval, extension=".png"):
                            ply_path=ply_path)
     return scene_info
 
+
+def readRGBDCamInfo(path):
+    cam_infos = []
+    frame_ids = []
+    configs_path = os.path.join(path, "config")
+    images_path = os.path.join(path, "rgb")
+    config_files = os.listdir(configs_path)
+    config_files.sort()
+
+    # Read Config
+    rgb_camera_params, depth_camera_params, relative_positions = readRGBDConfig(os.path.join(configs_path, "configuration.txt"))
+    print(rgb_camera_params)
+
+    # Read the camera extrinsics and intrinsics
+    for idx, file in enumerate(config_files):
+        if file.startswith("campose-rgb-"):
+            frame_id = file.split('-')[2].split('.')[0]
+            config_file = os.path.join(configs_path, file)
+
+            with open(config_file, 'r') as file:
+                lines = file.readlines()
+
+                # Extracting position
+                position_str = lines[0].replace('position=', '').split('\n')[0]
+                position = np.array([float(i) for i in position_str.strip('()').split(',')])
+
+                # Extracting rotation as a quaternion
+                rotation_str = lines[1].replace('rotation_as_quaternion=', '').split('\n')[0]
+                rotation = np.array([float(i) for i in rotation_str.strip('()').split(',')])
+
+                # Extracting the 4x4 pose matrix
+                pose_str = lines[3:]
+                pose = np.array([[float(i) for i in row.strip('(').split(')')[0].split(',')] for row in pose_str if row != ''])    
+
+                # print(position)
+                # print(rotation)
+                # print(pose)
+
+                # Extracting the camera extrinsics
+                T = np.array(position)
+                r = ScipyRotation.from_quat(rotation)
+                R = r.as_matrix()
+
+                # Extracting the camera image
+                image_name = 'rgb-' + frame_id + '.png'
+                image_path = os.path.join(images_path, image_name)
+                image = Image.open(image_path)
+
+                # Extracting the camera intrinsics
+                FovY = rgb_camera_params['vFov']
+                FovX = rgb_camera_params['hFov']
+
+                frame_ids.append(frame_id)
+                cam_infos.append(CameraInfo(uid=idx, R=R, T=T, FovY=FovY, FovX=FovX, image=image,
+                            image_path=image_path, image_name=image_name, width=image.size[0], height=image.size[1]))
+    return cam_infos, frame_ids           
+
+
+def readRGBDSceneInfo(path, eval):
+    # Load Camera Poses
+    cam_infos, frame_ids = readRGBDCamInfo(path)
+
+    if eval:
+        train_cam_infos = [c for idx, c in enumerate(cam_infos) if idx % llffhold != 0]
+        test_cam_infos = [c for idx, c in enumerate(cam_infos) if idx % llffhold == 0]
+    else:
+        train_cam_infos = cam_infos
+        test_cam_infos = []
+
+    nerf_normalization = getNerfppNorm(train_cam_infos)
+
+    # Load Initial Point Cloud
+    images_path = os.path.join(path, "rgb")
+    frame0 = frame_ids[0]
+    ply_path = os.path.join(path, 'ply')
+    ply_path = os.path.join(ply_path, frame0 + ".ply")
+    o3d_pc = loadPlyfromRGBD(images_path, frame0, ply_path, save = True)
+    
+    # Extract data from Open3D point cloud
+    positions = np.asarray(o3d_pc.points)
+    colors = np.asarray(o3d_pc.colors)
+    normals = np.asarray(o3d_pc.normals)
+    colors /= 255.0
+
+    # Create a BasicPointCloud object
+    pcd = BasicPointCloud(points=positions, colors=colors, normals=normals)
+
+    # Return SceneInfo
+    scene_info = SceneInfo(point_cloud=pcd,
+                           train_cameras=train_cam_infos,
+                           test_cameras=test_cam_infos,
+                           nerf_normalization=nerf_normalization,
+                           ply_path=ply_path)
+    return scene_info
+
 sceneLoadTypeCallbacks = {
     "Colmap": readColmapSceneInfo,
-    "Blender" : readNerfSyntheticInfo
+    "Blender" : readNerfSyntheticInfo,
+    "RGBD" : readRGBDSceneInfo
 }
