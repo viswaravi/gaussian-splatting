@@ -262,6 +262,8 @@ def readNerfSyntheticInfo(path, white_background, eval, extension=".png"):
 def readRGBDCamInfo(path):
     cam_infos = []
     frame_ids = []
+    camera_params = {} # Camera Intrinsic parameters
+    camera_poses = {} # Camera Extrinsic Matrix
     configs_path = os.path.join(path, "config")
     images_path = os.path.join(path, "rgb")
     config_files = os.listdir(configs_path)
@@ -269,7 +271,9 @@ def readRGBDCamInfo(path):
 
     # Read Config
     rgb_camera_params, depth_camera_params, relative_positions = readRGBDConfig(os.path.join(configs_path, "configuration.txt"))
-    print(rgb_camera_params)
+    camera_params["rgb"] = rgb_camera_params
+    camera_params["depth"] = depth_camera_params
+    camera_params["relative"] = relative_positions
 
     # Read the camera extrinsics and intrinsics
     for idx, file in enumerate(config_files):
@@ -311,14 +315,15 @@ def readRGBDCamInfo(path):
                 FovX = rgb_camera_params['hFov']
 
                 frame_ids.append(frame_id)
+                camera_poses[frame_id] = pose
                 cam_infos.append(CameraInfo(uid=idx, R=R, T=T, FovY=FovY, FovX=FovX, image=image,
                             image_path=image_path, image_name=image_name, width=image.size[0], height=image.size[1]))
-    return cam_infos, frame_ids           
+    return cam_infos, frame_ids, camera_params, camera_poses 
 
 
-def readRGBDSceneInfo(path, eval):
+def readRGBDSceneInfo(path, eval, llffhold=8):
     # Load Camera Poses
-    cam_infos, frame_ids = readRGBDCamInfo(path)
+    cam_infos, frame_ids ,camera_params, camera_poses  = readRGBDCamInfo(path)
 
     if eval:
         train_cam_infos = [c for idx, c in enumerate(cam_infos) if idx % llffhold != 0]
@@ -334,7 +339,7 @@ def readRGBDSceneInfo(path, eval):
     frame0 = frame_ids[0]
     ply_path = os.path.join(path, 'ply')
     ply_path = os.path.join(ply_path, frame0 + ".ply")
-    o3d_pc = loadPlyfromRGBD(images_path, frame0, ply_path, save = True)
+    o3d_pc = loadPlyfromRGBD(images_path, frame0, ply_path, camera_params, camera_poses[frame0], save = True)
     
     # Extract data from Open3D point cloud
     positions = np.asarray(o3d_pc.points)

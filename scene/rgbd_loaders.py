@@ -54,12 +54,12 @@ def readRGBDConfig(config_file):
         return rgb_camera_params, depth_camera_params, relative_positions
 
 
-def loadPlyfromRGBD(path, frameid, ply_path, save = False):
+def loadPlyfromRGBD(path, frameid, ply_path, camera_params, camera_pose , save = False):
     color_file = os.path.join(path, "rgb-" + frameid + ".png")
     depth_file = os.path.join(path, "gt-rgb-depth-" + frameid + ".png")
 
-    print(color_file)
-    print(depth_file)
+    # print(color_file)
+    # print(depth_file)
 
     # Read the depth and color images
     depth_image = o3d.io.read_image(depth_file)
@@ -72,14 +72,20 @@ def loadPlyfromRGBD(path, frameid, ply_path, save = False):
     width = depth_array.shape[1]
     height = depth_array.shape[0]
 
-    # Intrinsic parameters of the camera (you may need to adjust these values)
+    # Intrinsic parameters of the camera
     intrinsic = o3d.camera.PinholeCameraIntrinsic()
+    cx = camera_params["rgb"]['cx,cy,fx,fy'][0]
+    cy = camera_params["rgb"]['cx,cy,fx,fy'][1]
+    fx = camera_params["rgb"]['cx,cy,fx,fy'][2] 
+    fy = camera_params["rgb"]['cx,cy,fx,fy'][3]
+    intrinsic.set_intrinsics(width=width, height=height, cx=cx, cy=cy, fx=fx, fy=fy)
     
-    intrinsic.set_intrinsics(width=width, height=height, cx=width / 2, cy=height / 2, fx=500, fy=500)
-    
+    # Extrinsics of the camera
+    extrinsic = camera_pose
+
     # Create a point cloud from the depth and color information
-    rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color_image, depth_image, depth_trunc=4.0, convert_rgb_to_intensity=False)
-    o3d_pc = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd, intrinsic)
+    rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color_image, depth_image, depth_trunc=10.0, convert_rgb_to_intensity=False)
+    o3d_pc = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd, intrinsic, extrinsic)
 
     # Store the point cloud as a ply file
     if save:
