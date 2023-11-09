@@ -15,7 +15,7 @@ from PIL import Image
 from typing import NamedTuple
 from scene.colmap_loader import read_extrinsics_text, read_intrinsics_text, qvec2rotmat, \
     read_extrinsics_binary, read_intrinsics_binary, read_points3D_binary, read_points3D_text
-from scene.rgbd_loaders import readRGBDConfig, loadPlyfromRGBD
+from scene.rgbd_loaders import readRGBDConfig, loadPointsFromRGBD, loadPointsFromPLY
 from utils.graphics_utils import getWorld2View2, focal2fov, fov2focal
 import numpy as np
 import json
@@ -24,7 +24,7 @@ from plyfile import PlyData, PlyElement
 from utils.sh_utils import SH2RGB
 from scene.gaussian_model import BasicPointCloud
 from scipy.spatial.transform import Rotation as ScipyRotation
-
+from tqdm import tqdm
 class CameraInfo(NamedTuple):
     uid: int
     R: np.array
@@ -276,7 +276,8 @@ def readRGBDCamInfo(path):
     camera_params["relative"] = relative_positions
 
     # Read the camera extrinsics and intrinsics
-    for idx, file in enumerate(config_files):
+    for i in range(20): # Process first 20 frames
+        file = config_files[i]
         if file.startswith("campose-rgb-"):
             frame_id = file.split('-')[2].split('.')[0]
             config_file = os.path.join(configs_path, file)
@@ -302,13 +303,15 @@ def readRGBDCamInfo(path):
 
                 # Extracting the camera extrinsics
                 T = np.array(position)
-                r = ScipyRotation.from_quat(rotation)
-                R = r.as_matrix()
+                R = ScipyRotation.from_quat(rotation).as_matrix().transpose()
+                # R = np.transpose(qvec2rotmat(rotation))
 
                 # Extracting the camera image
                 image_name = 'rgb-' + frame_id + '.png'
                 image_path = os.path.join(images_path, image_name)
+                # Load GT Image for Loss Calculation
                 image = Image.open(image_path)
+                # image = None
 
                 # Extracting the camera intrinsics
                 FovY = rgb_camera_params['vFov']
@@ -316,7 +319,7 @@ def readRGBDCamInfo(path):
 
                 frame_ids.append(frame_id)
                 camera_poses[frame_id] = pose
-                cam_infos.append(CameraInfo(uid=idx, R=R, T=T, FovY=FovY, FovX=FovX, image=image,
+                cam_infos.append(CameraInfo(uid=frame_id, R=R, T=T, FovY=FovY, FovX=FovX, image=image,
                             image_path=image_path, image_name=image_name, width=image.size[0], height=image.size[1]))
     return cam_infos, frame_ids, camera_params, camera_poses 
 
@@ -338,8 +341,9 @@ def readRGBDSceneInfo(path, eval, llffhold=8):
     images_path = os.path.join(path, "rgb")
     frame0 = frame_ids[0]
     ply_path = os.path.join(path, 'ply')
-    ply_path = os.path.join(ply_path, frame0 + ".ply")
-    o3d_pc = loadPlyfromRGBD(images_path, frame0, ply_path, camera_params, camera_poses[frame0], save = True)
+    ply_file_path = os.path.join(ply_path, frame0 + ".ply")
+    # o3d_pc = loadPointsFromRGBD(images_path, frame0, ply_file_path, camera_params, camera_poses[frame0], save = True)
+    o3d_pc = loadPointsFromPLY(ply_file_path)
     
     # Extract data from Open3D point cloud
     positions = np.asarray(o3d_pc.points)
@@ -355,7 +359,7 @@ def readRGBDSceneInfo(path, eval, llffhold=8):
                            train_cameras=train_cam_infos,
                            test_cameras=test_cam_infos,
                            nerf_normalization=nerf_normalization,
-                           ply_path=ply_path)
+                           ply_path=ply_file_path)
     return scene_info
 
 sceneLoadTypeCallbacks = {

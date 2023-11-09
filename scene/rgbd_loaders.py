@@ -54,7 +54,15 @@ def readRGBDConfig(config_file):
         return rgb_camera_params, depth_camera_params, relative_positions
 
 
-def loadPlyfromRGBD(path, frameid, ply_path, camera_params, camera_pose , save = False):
+
+# Reads Data from PLY file
+def loadPointsFromPLY(ply_path):
+    # Read the point cloud
+    pcd = o3d.io.read_point_cloud(ply_path)
+    return pcd
+
+# Reads Data from RGBD Images and stores them as a ply file
+def loadPointsFromRGBD(path, frameid, ply_file_path, camera_params, camera_pose , save = False):
     color_file = os.path.join(path, "rgb-" + frameid + ".png")
     depth_file = os.path.join(path, "gt-rgb-depth-" + frameid + ".png")
 
@@ -89,5 +97,5 @@ def loadPlyfromRGBD(path, frameid, ply_path, camera_params, camera_pose , save =
 
     # Store the point cloud as a ply file
     if save:
-        o3d.io.write_point_cloud(ply_path, o3d_pc)
+        o3d.io.write_point_cloud(ply_file_path, o3d_pc)
     return o3d_pc

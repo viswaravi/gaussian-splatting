@@ -20,6 +20,7 @@ from utils.sh_utils import RGB2SH
 from simple_knn._C import distCUDA2
 from utils.graphics_utils import BasicPointCloud
 from utils.general_utils import strip_symmetric, build_scaling_rotation
+from scipy.spatial import KDTree
 
 class GaussianModel:
 
@@ -146,9 +147,32 @@ class GaussianModel:
         self._opacity = nn.Parameter(opacities.requires_grad_(True))
         self.max_radii2D = torch.zeros((self.get_xyz.shape[0]), device="cuda")
 
+    
+    def correspondences(self, points, normals, max_dist, max_angle, max_screen_size):
+        # Build KDTree from current point cloud positions
+        tree = KDTree(self._xyz.cpu().detach().numpy())
 
-    def add_frame(self, frame, spatial_lr_scale : float):
+        # Query KDTree for nearest neighbors of new points
+        dist, idx = tree.query(points.cpu().detach().numpy())
+
+        # Filter correspondences based on distance and angle thresholds
+        mask = (dist < max_dist) & (torch.abs(torch.sum(normals * self._features_dc[:, :3], dim=1)) > max_angle) & (torch.max(points, dim=1).values < max_screen_size)
+        idx = idx[mask]
+        
+        # Get the points that are greater than max_dist
+        points_greater_than_max_dist = points[dist > max_dist]
+
+        
+
+        return points_greater_than_max_dist
+
+
+
+    def add_frame_points(self, points):
+        # Adds new points to the model from a new frame
         pass
+
+
 
     def training_setup(self, training_args):
         self.percent_dense = training_args.percent_dense
