@@ -267,7 +267,9 @@ def readRGBDCamInfo(path):
     configs_path = os.path.join(path, "config")
     images_path = os.path.join(path, "rgb")
     config_files = os.listdir(configs_path)
+    config_files.pop() # Remove configuration.txt
     config_files.sort()
+    frame_step = 5
 
     # Read Config
     rgb_camera_params, depth_camera_params, relative_positions = readRGBDConfig(os.path.join(configs_path, "configuration.txt"))
@@ -276,7 +278,8 @@ def readRGBDCamInfo(path):
     camera_params["relative"] = relative_positions
 
     # Read the camera extrinsics and intrinsics
-    for i in range(20): # Process first 20 frames
+    # for i in range(20): # Process first 20 frames
+    for i in range(0, len(config_files), frame_step):
         file = config_files[i]
         if file.startswith("campose-rgb-"):
             frame_id = file.split('-')[2].split('.')[0]
