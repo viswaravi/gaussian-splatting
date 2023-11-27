@@ -1,6 +1,9 @@
 import os 
 import open3d as o3d
 import numpy as np
+# from scene.dataset_readers import CameraInfo
+from PIL import Image
+from scipy.spatial.transform import Rotation as ScipyRotation
 
 def readRGBDConfig(config_file):
     # Define dictionaries to hold camera parameters
@@ -53,7 +56,72 @@ def readRGBDConfig(config_file):
 
         return rgb_camera_params, depth_camera_params, relative_positions
 
+def readRGBDCamInfo(path):
+    cam_infos = []
+    frame_ids = []
+    camera_params = {} # Camera Intrinsic parameters
+    camera_poses = {} # Camera Extrinsic Matrix
+    configs_path = os.path.join(path, "config")
+    images_path = os.path.join(path, "rgb")
+    config_files = os.listdir(configs_path)
+    config_files.pop() # Remove configuration.txt
+    config_files.sort()
+    frame_step = 5
 
+    # Read Config
+    rgb_camera_params, depth_camera_params, relative_positions = readRGBDConfig(os.path.join(configs_path, "configuration.txt"))
+    camera_params["rgb"] = rgb_camera_params
+    camera_params["depth"] = depth_camera_params
+    camera_params["relative"] = relative_positions
+
+    # Read the camera extrinsics and intrinsics
+    # for i in range(20): # Process first 20 frames
+    for i in range(0, len(config_files), frame_step):
+        file = config_files[i]
+        if file.startswith("campose-rgb-"):
+            frame_id = file.split('-')[2].split('.')[0]
+            config_file = os.path.join(configs_path, file)
+
+            with open(config_file, 'r') as file:
+                lines = file.readlines()
+
+                # Extracting position
+                position_str = lines[0].replace('position=', '').split('\n')[0]
+                position = np.array([float(i) for i in position_str.strip('()').split(',')])
+
+                # Extracting rotation as a quaternion
+                rotation_str = lines[1].replace('rotation_as_quaternion=', '').split('\n')[0]
+                rotation = np.array([float(i) for i in rotation_str.strip('()').split(',')])
+
+                # Extracting the 4x4 pose matrix
+                pose_str = lines[3:]
+                pose = np.array([[float(i) for i in row.strip('(').split(')')[0].split(',')] for row in pose_str if row != ''])    
+
+                # print(position)
+                # print(rotation)
+                # print(pose)
+
+                # Extracting the camera extrinsics
+                T = np.array(position)
+                R = ScipyRotation.from_quat(rotation).as_matrix().transpose()
+                # R = np.transpose(qvec2rotmat(rotation))
+
+                # Extracting the camera image
+                image_name = 'rgb-' + frame_id + '.png'
+                image_path = os.path.join(images_path, image_name)
+                # Load GT Image for Loss Calculation
+                image = Image.open(image_path)
+                # image = None
+
+                # Extracting the camera intrinsics
+                FovY = rgb_camera_params['vFov']
+                FovX = rgb_camera_params['hFov']
+
+                frame_ids.append(frame_id)
+                camera_poses[frame_id] = pose
+                cam_infos.append(CameraInfo(uid=frame_id, R=R, T=T, FovY=FovY, FovX=FovX, image=image,
+                            image_path=image_path, image_name=image_name, width=image.size[0], height=image.size[1]))
+    return cam_infos, frame_ids, camera_params, camera_poses 
 
 # Reads Data from PLY file
 def loadPointsFromPLY(ply_path):
