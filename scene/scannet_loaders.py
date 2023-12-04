@@ -17,6 +17,7 @@ class CameraInfo(NamedTuple):
     image_name: str
     width: int
     height: int
+    intrinsics: np.array
 
 def readFileMatrix(file_path):
     # Read the file
@@ -66,7 +67,7 @@ def readScanNetConfig(config_files_path):
     rgb_camera_params['hFov'], rgb_camera_params['vFov'] = rgb_intrinsic[0], rgb_intrinsic[1]
     depth_camera_params['hFov'], depth_camera_params['vFov'] = depth_intrinsic[0], depth_intrinsic[1]
 
-    return rgb_camera_params, depth_camera_params
+    return rgb_camera_params, depth_camera_params, intrinsic_color
 
 def readScanNetCamInfo(scene_path):
     cam_infos = []
@@ -82,7 +83,7 @@ def readScanNetCamInfo(scene_path):
     # print(config_files)
 
     # Read Config
-    rgb_camera_params, depth_camera_params = readScanNetConfig(os.path.join(scene_path, "intrinsic"))
+    rgb_camera_params, depth_camera_params, intrinsic_color = readScanNetConfig(os.path.join(scene_path, "intrinsic"))
 
     config_file_limit = 150 # Limiting the number of frames to process for GPU memory constraints
     # Read the camera extrinsics and intrinsics
@@ -117,6 +118,6 @@ def readScanNetCamInfo(scene_path):
 
         frame_ids.append(frame_id)
         cam_infos.append(CameraInfo(uid=frame_id, R=R, T=T, FovY=FovY, FovX=FovX, image=image,
-                    image_path=image_path, image_name=image_name, width=image.size[0], height=image.size[1]))
+                    image_path=image_path, image_name=image_name, width=image.size[0], height=image.size[1], intrinsics=intrinsic_color))
 
     return cam_infos, frame_ids
