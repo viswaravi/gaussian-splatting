@@ -6,18 +6,7 @@ from PIL import Image
 from typing import NamedTuple
 from tqdm import tqdm
 import cv2
-class CameraInfo(NamedTuple):
-    uid: int
-    R: np.array
-    T: np.array
-    FovY: np.array
-    FovX: np.array
-    image: np.array
-    image_path: str
-    image_name: str
-    width: int
-    height: int
-    intrinsics: np.array
+   
 
 def readFileMatrix(file_path):
     # Read the file
@@ -115,6 +104,8 @@ def readScanNetCamInfo(scene_path):
         # Extracting the camera intrinsics
         FovY = rgb_camera_params['vFov']
         FovX = rgb_camera_params['hFov']
+
+        print(FovY, FovX)
 
         frame_ids.append(frame_id)
         cam_infos.append(CameraInfo(uid=frame_id, R=R, T=T, FovY=FovY, FovX=FovX, image=image,
