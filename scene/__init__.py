@@ -17,9 +17,10 @@ from scene.dataset_readers import sceneLoadTypeCallbacks
 from scene.gaussian_model import GaussianModel
 from arguments import ModelParams
 from utils.camera_utils import cameraList_from_camInfos, camera_to_JSON
+from utils.graphics_utils import BasicPointCloud
 
 class Scene:
-
+ 
     gaussians : GaussianModel
 
     def __init__(self, args : ModelParams, gaussians : GaussianModel, load_iteration=None, shuffle=True, resolution_scales=[1.0]):
@@ -90,9 +91,12 @@ class Scene:
         else:
             self.gaussians.create_from_pcd(scene_info.point_cloud, self.cameras_extent)
 
-    def extendGaussians(self, cuurent_frame_ply):
-        if os.path.exists(cuurent_frame_ply):
-            self.gaussians.extend_from_pcd(cuurent_frame_ply)
+    def extendGaussians(self, pcd:BasicPointCloud):
+            self.gaussians.extendGaussiansfromPCD(pcd, self.cameras_extent)
+
+    def initializeGaussians(self, pcd:BasicPointCloud):
+        self.gaussians.create_from_pcd(pcd, self.cameras_extent)
+
 
     def save(self, iteration):
         point_cloud_path = os.path.join(self.model_path, "point_cloud/iteration_{}".format(iteration))

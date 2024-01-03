@@ -155,7 +155,7 @@ class GaussianModel:
         features[:, :3, 0 ] = fused_color
         features[:, 3:, 1:] = 0.0
 
-        print("Number of points at frame initialisation : ", fused_point_cloud.shape[0])
+        # print("Number of points at frame initialisation : ", fused_point_cloud.shape[0])
 
         dist2 = torch.clamp_min(distCUDA2(torch.from_numpy(np.asarray(pcd.points)).float().cuda()), 0.0000001)
         scales = torch.log(torch.sqrt(dist2))[...,None].repeat(1, 3)
@@ -164,14 +164,16 @@ class GaussianModel:
 
         opacities = inverse_sigmoid(0.1 * torch.ones((fused_point_cloud.shape[0], 1), dtype=torch.float, device="cuda"))
 
-        self._xyz = nn.Parameter(torch.cat((self._xyz, fused_point_cloud), dim=0).requires_grad_(True))
-        self._features_dc = nn.Parameter(torch.cat((self._features_dc, features[:,:,0:1].transpose(1, 2).contiguous()), dim=0).requires_grad_(True))
-        self._features_rest = nn.Parameter(torch.cat((self._features_rest, features[:,:,1:].transpose(1, 2).contiguous()), dim=0).requires_grad_(True))
-        self._scaling = nn.Parameter(torch.cat((self._scaling, scales), dim=0).requires_grad_(True))
-        self._rotation = nn.Parameter(torch.cat((self._rotation, rots), dim=0).requires_grad_(True))
-        self._opacity = nn.Parameter(torch.cat((self._opacity, opacities), dim=0).requires_grad_(True))
+        print("XYZ: ", self._xyz.data.shape, type(self._xyz.data))
+
+        self._xyz = nn.Parameter(torch.cat((self._xyz.data, fused_point_cloud), dim=0).requires_grad_(True))
+        self._features_dc = nn.Parameter(torch.cat((self._features_dc.data, features[:,:,0:1].transpose(1, 2).contiguous()), dim=0).requires_grad_(True))
+        self._features_rest = nn.Parameter(torch.cat((self._features_rest.data, features[:,:,1:].transpose(1, 2).contiguous()), dim=0).requires_grad_(True))
+        self._scaling = nn.Parameter(torch.cat((self._scaling.data, scales), dim=0).requires_grad_(True))
+        self._rotation = nn.Parameter(torch.cat((self._rotation.data, rots), dim=0).requires_grad_(True))
+        self._opacity = nn.Parameter(torch.cat((self._opacity.data, opacities), dim=0).requires_grad_(True))
         self.max_radii2D = torch.zeros((self.get_xyz.shape[0]), device="cuda")
-        print("Number of points after Extending : ", self._xyz.shape)
+        print("Number of points after Extending : ", self.get_xyz.shape)
 
     
     def correspondences(self, points, normals, max_dist, max_angle, max_screen_size):

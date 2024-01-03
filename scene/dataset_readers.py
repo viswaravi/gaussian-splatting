@@ -325,7 +325,9 @@ def readScanNetSceneInfo(scene_path, eval, llffhold=8):
     positions = np.asarray(o3d_pc.points)
     colors = np.asarray(o3d_pc.colors)
     normals = np.asarray(o3d_pc.normals)
-    colors /= 255.0
+    
+    if np.max(colors) > 1:
+        colors = colors / 255.0
 
     # Create a BasicPointCloud object
     pcd = BasicPointCloud(points=positions, colors=colors, normals=normals)
