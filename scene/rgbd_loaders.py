@@ -1,9 +1,22 @@
 import os 
 import open3d as o3d
 import numpy as np
-# from scene.dataset_readers import CameraInfo
 from PIL import Image
 from scipy.spatial.transform import Rotation as ScipyRotation
+from typing import NamedTuple
+
+class CameraInfo(NamedTuple):
+    uid: int
+    R: np.array
+    T: np.array
+    FovY: np.array
+    FovX: np.array
+    image: np.array
+    image_path: str
+    image_name: str
+    width: int
+    height: int
+    intrinsics: np.array
 
 def readRGBDConfig(config_file):
     # Define dictionaries to hold camera parameters
@@ -106,6 +119,14 @@ def readRGBDCamInfo(path):
                 R = ScipyRotation.from_quat(rotation).as_matrix().transpose()
                 # R = np.transpose(qvec2rotmat(rotation))
 
+                # Create Intrinsics Matrix in Homogeneous Coordinates
+                # print(rgb_camera_params)
+                cx = rgb_camera_params['cx,cy,fx,fy'][0]
+                cy = rgb_camera_params['cx,cy,fx,fy'][1]
+                fx = rgb_camera_params['cx,cy,fx,fy'][2] 
+                fy = rgb_camera_params['cx,cy,fx,fy'][3]
+                rgb_intrinsic = np.array([[fx, 0, cx, 0], [0, fy, cy, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+
                 # Extracting the camera image
                 image_name = 'rgb-' + frame_id + '.png'
                 image_path = os.path.join(images_path, image_name)
@@ -120,7 +141,8 @@ def readRGBDCamInfo(path):
                 frame_ids.append(frame_id)
                 camera_poses[frame_id] = pose
                 cam_infos.append(CameraInfo(uid=frame_id, R=R, T=T, FovY=FovY, FovX=FovX, image=image,
-                            image_path=image_path, image_name=image_name, width=image.size[0], height=image.size[1]))
+                            image_path=image_path, image_name=image_name, width=image.size[0], height=image.size[1], intrinsics=rgb_intrinsic))
+                
     return cam_infos, frame_ids, camera_params, camera_poses 
 
 # Reads Data from PLY file
