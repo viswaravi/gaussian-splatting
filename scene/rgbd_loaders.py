@@ -108,15 +108,16 @@ def readRGBDCamInfo(path):
 
                 # Extracting the 4x4 pose matrix
                 pose_str = lines[3:]
-                pose = np.array([[float(i) for i in row.strip('(').split(')')[0].split(',')] for row in pose_str if row != ''])    
+                pose = np.array([[float(i) for i in row.strip('(').split(')')[0].split(',')] for row in pose_str if row != ''])
 
-                # print(position)
-                # print(rotation)
-                # print(pose)
+                # Flip the y,z Axis
+                # pose = np.dot(np.array([[1, 0, 0, 0],[0, -1, 0, 0],[0, 0, -1, 0],[0, 0, 0, 1]]), pose)
 
                 # Extracting the camera extrinsics
-                T = np.array(position)
-                R = ScipyRotation.from_quat(rotation).as_matrix().transpose()
+                T = pose[:3, 3]
+                R = pose[:3, :3]
+                # T = np.array(position)
+                # R = ScipyRotation.from_quat(rotation).as_matrix().transpose()
                 # R = np.transpose(qvec2rotmat(rotation))
 
                 # Create Intrinsics Matrix in Homogeneous Coordinates
@@ -135,8 +136,8 @@ def readRGBDCamInfo(path):
                 # image = None
 
                 # Extracting the camera intrinsics
-                FovY = rgb_camera_params['vFov']
-                FovX = rgb_camera_params['hFov']
+                FovY = np.radians(rgb_camera_params['vFov'])
+                FovX = np.radians(rgb_camera_params['hFov'])
 
                 frame_ids.append(frame_id)
                 camera_poses[frame_id] = pose
