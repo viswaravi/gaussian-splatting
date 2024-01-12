@@ -71,8 +71,7 @@ def getWorld2View3(R, t, translate=np.array([0.0, 0.0, 0.0]), scale=1.0):
     world_to_camera[:3, 3] = T_inv
 
     # Flip the Z and Y Axis
-    world_to_camera[2, :] *= -1
-    world_to_camera[1, :] *= -1
+    world_to_camera = np.dot(np.array([[1, 0, 0, 0],[0, -1, 0, 0],[0, 0, -1, 0],[0, 0, 0, 1]]), world_to_camera)
 
     return np.float32(world_to_camera)
 
