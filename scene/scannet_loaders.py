@@ -69,6 +69,29 @@ def readScanNetConfig(config_files_path):
 
     return rgb_camera_params, depth_camera_params, intrinsic_color
 
+def getWorld2View(R, t, translate=np.array([0.0, 0.0, 0.0]), scale=1.0):
+    # Add Homogeneous Coordinate
+    Rt = np.eye(4)
+    Rt[:3, :3] = R
+    Rt[:3, 3] = t
+
+    # Add Translation and Scale
+    C2W = Rt
+    cam_center = C2W[:3, 3]
+    cam_center = (cam_center + translate) * scale
+    C2W[:3, 3] = cam_center
+
+    # Invert
+    R = C2W[:3, :3]
+    t = C2W[:3, 3]
+    R_inv = R.T
+    T_inv = -R_inv @ t
+    world_to_camera = np.eye(4)
+    world_to_camera[:3, :3] = R_inv
+    world_to_camera[:3, 3] = T_inv
+
+    return np.float32(world_to_camera)
+
 def readScanNetCamInfo(scene_path):
     cam_infos = []
     frame_ids = []
@@ -101,6 +124,9 @@ def readScanNetCamInfo(scene_path):
         # Extracting position and Rotation
         T = pose[:3, 3]
         R = pose[:3, :3]
+        W2C = getWorld2View(R, T)
+        R = W2C[:3, :3]
+        T = W2C[:3, 3]
         # print(position)
         # print(rotation)
         # print(pose)

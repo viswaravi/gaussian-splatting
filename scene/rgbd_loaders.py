@@ -69,6 +69,29 @@ def readRGBDConfig(config_file):
 
         return rgb_camera_params, depth_camera_params, relative_positions
 
+def getWorld2View(R, t, translate=np.array([0.0, 0.0, 0.0]), scale=1.0):
+    # Add Homogeneous Coordinate
+    Rt = np.eye(4)
+    Rt[:3, :3] = R
+    Rt[:3, 3] = t
+
+    # Add Translation and Scale
+    C2W = Rt
+    cam_center = C2W[:3, 3]
+    cam_center = (cam_center + translate) * scale
+    C2W[:3, 3] = cam_center
+
+    # Invert
+    R = C2W[:3, :3]
+    t = C2W[:3, 3]
+    R_inv = R.T
+    T_inv = -R_inv @ t
+    world_to_camera = np.eye(4)
+    world_to_camera[:3, :3] = R_inv
+    world_to_camera[:3, 3] = T_inv
+
+    return np.float32(world_to_camera)
+
 def readRGBDCamInfo(path):
     cam_infos = []
     frame_ids = []
@@ -110,16 +133,21 @@ def readRGBDCamInfo(path):
                 pose_str = lines[3:]
                 pose = np.array([[float(i) for i in row.strip('(').split(')')[0].split(',')] for row in pose_str if row != ''])
 
-                # Flip the y,z Axis
-                # pose = np.dot(np.array([[1, 0, 0, 0],[0, -1, 0, 0],[0, 0, -1, 0],[0, 0, 0, 1]]), pose)
-
                 # Extracting the camera extrinsics
-                T = pose[:3, 3]
-                R = pose[:3, :3]
+        
                 # T = np.array(position)
                 # R = ScipyRotation.from_quat(rotation).as_matrix().transpose()
                 # R = np.transpose(qvec2rotmat(rotation))
 
+                # Extracting the camera extrinsics
+                T = pose[:3, 3]
+                R = pose[:3, :3]
+                W2C = getWorld2View(R,T)
+                flip_YZ = np.array([[1, 0, 0, 0],[0, -1, 0, 0],[0, 0, -1, 0],[0, 0, 0, 1]])
+                W2C = flip_YZ @ W2C
+                R = W2C[:3, :3]
+                T = W2C[:3, 3]
+                
                 # Create Intrinsics Matrix in Homogeneous Coordinates
                 # print(rgb_camera_params)
                 cx = rgb_camera_params['cx,cy,fx,fy'][0]

@@ -70,11 +70,21 @@ def getWorld2View3(R, t, translate=np.array([0.0, 0.0, 0.0]), scale=1.0):
     world_to_camera[:3, :3] = R_inv
     world_to_camera[:3, 3] = T_inv
 
-    # Flip the Z and Y Axis
-    world_to_camera = np.dot(np.array([[1, 0, 0, 0],[0, -1, 0, 0],[0, 0, -1, 0],[0, 0, 0, 1]]), world_to_camera)
-
     return np.float32(world_to_camera)
 
+def getWorld2ViewC(R, t, translate=np.array([0.0, 0.0, 0.0]), scale=1.0):
+    # Add Homogeneous Coordinate
+    Rt = np.eye(4)
+    Rt[:3, :3] = R
+    Rt[:3, 3] = t
+
+    # Add Translation and Scale
+    C2W = Rt
+    cam_center = C2W[:3, 3]
+    cam_center = (cam_center + translate) * scale
+    C2W[:3, 3] = cam_center
+
+    return np.float32(C2W)
 
 #Scannet Dataset
 def getWorld2View4(R, t, translate=np.array([0.0, 0.0, 0.0]), scale=1.0):
