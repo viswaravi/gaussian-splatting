@@ -6,6 +6,7 @@ import os
 from argparse import Namespace
 import open3d as o3d
 from gaussian_renderer import render, network_gui
+from torchvision.utils import save_image
 
 try:
     from torch.utils.tensorboard import SummaryWriter
@@ -13,6 +14,22 @@ try:
 except ImportError:
     TENSORBOARD_FOUND = False
 
+def renderGS(viewpoint_cam, gaussians, pipeline):
+    with torch.no_grad():
+        # Render
+        bg = torch.ones((3), device="cuda")
+        render_pkg = render(viewpoint_cam, gaussians, pipeline, bg)
+        image, viewspace_point_tensor, visibility_filter, radii, raster_depth_map, visibility_map = render_pkg["render"], render_pkg["viewspace_points"], render_pkg["visibility_filter"], render_pkg["radii"], render_pkg["raster_depth"], render_pkg["visibility"]
+        return image, viewspace_point_tensor, visibility_filter, radii, raster_depth_map, visibility_map
+
+def getGaussianDepthMap(viewpoint_cam, gaussians, pipeline):
+    image, viewspace_point_tensor, visibility_filter, radii, raster_depth_map, visibility_map = renderGS(viewpoint_cam, gaussians, pipeline)
+    return raster_depth_map, visibility_map
+
+def saveCurrentRender(viewpoint_cam, gaussians, pipeline, model_path, iteration):
+    image, viewspace_point_tensor, visibility_filter, radii, raster_depth_map, visibility_map = renderGS(viewpoint_cam, gaussians, pipeline)
+    file_path = model_path + '/' + str(iteration) + '_' + str(viewpoint_cam.colmap_id) + '_render'  + '.png'
+    save_image(image, file_path)
 
 def showTensorDepthImage(tensor):
     image_array = tensor.cpu().numpy()
