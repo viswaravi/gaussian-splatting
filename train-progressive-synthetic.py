@@ -105,6 +105,17 @@ def rasterizePoints(viewpoint_cam, points, colors=None, sub_pixel_level=1):
 
 
 def training(dataset, opt, pipeline, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from):
+    # Initialize Profiler
+    prof = torch.profiler.profile(
+    schedule=torch.profiler.schedule(wait=0, warmup=0, active=1, repeat=0),
+    on_trace_ready=torch.profiler.tensorboard_trace_handler('./log/'),
+    record_shapes=True,
+    profile_memory=True,
+    with_stack=True,
+    activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],)
+
+    prof.start()
+
     # Progressive Fusion
     first_viewpoint = 0
     tb_writer = prepare_output_and_logger(dataset)
@@ -127,13 +138,13 @@ def training(dataset, opt, pipeline, testing_iterations, saving_iterations, chec
     ema_loss_for_log = 0.0
 
     viewpoint_stack = scene.getTrainCameras().copy()
-    num_viewpoints = len(viewpoint_stack)
+    num_viewpoints = 6 # len(viewpoint_stack)
     progress_bar = tqdm(range(first_viewpoint, num_viewpoints), desc="Training progress")
     first_viewpoint += 1
 
     # Scene is Already loaded with First Frame
     frame_batch_size = 5
-    frame_step = 3
+    frame_step = 2
     visibility_threshold = 0.5
     batch_iter = 10
 
@@ -146,9 +157,9 @@ def training(dataset, opt, pipeline, testing_iterations, saving_iterations, chec
         # Fuse K frames into Global Field
         # Gaussian Densification / Fusion
         start_cam_index = viewpoint_index
-        end_cam_index = min(num_viewpoints, viewpoint_index + frame_batch_size)
+        end_cam_index = min(num_viewpoints, viewpoint_index + frame_step)
 
-        # print("Fusing Frames: ", list(range(start_cam_index, end_cam_index)))
+        print("Fusing Frames: ", list(range(start_cam_index, end_cam_index)))
         for K_i in range(start_cam_index, end_cam_index):
             viewpoint_cam = viewpoint_stack[K_i]
             ply_file_name = viewpoint_cam.colmap_id + ".ply"        
@@ -231,6 +242,7 @@ def training(dataset, opt, pipeline, testing_iterations, saving_iterations, chec
             # Update Progress Bar
             progress_bar.update(frame_step)
 
+
             # Log and save
             if (end_cam_index in checkpoint_iterations):
                 print("\n[ITER {}] Saving Checkpoint".format(end_cam_index))
@@ -239,10 +251,13 @@ def training(dataset, opt, pipeline, testing_iterations, saving_iterations, chec
             if (end_cam_index in saving_iterations):
                 print("\n[ITER {}] Saving Gaussians".format(end_cam_index))
                 scene.save(end_cam_index)
+            
+        prof.step()
 
     # Finished Training
-    torch.cuda.empty_cache()
+    prof.stop()
     progress_bar.close()
+    torch.cuda.empty_cache()
 
 if __name__ == "__main__":
     # Set up command line argument parser

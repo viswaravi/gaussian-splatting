@@ -149,33 +149,48 @@ class GaussianModel:
 
     def extendGaussiansfromPCD(self, pcd : BasicPointCloud, spatial_lr_scale : float):
         self.spatial_lr_scale = spatial_lr_scale
-        fused_point_cloud = torch.tensor(np.asarray(pcd.points)).float().cuda()
-        fused_color = RGB2SH(torch.tensor(np.asarray(pcd.colors)).float().cuda())
-        features = torch.zeros((fused_color.shape[0], 3, (self.max_sh_degree + 1) ** 2)).float().cuda()
-        features[:, :3, 0 ] = fused_color
-        features[:, 3:, 1:] = 0.0
+        new_xyz = torch.tensor(np.asarray(pcd.points)).float().cuda()
+        new_color = RGB2SH(torch.tensor(np.asarray(pcd.colors)).float().cuda())
+        new_features = torch.zeros((new_color.shape[0], 3, (self.max_sh_degree + 1) ** 2)).float().cuda()
+        new_features[:, :3, 0 ] = new_color
+        new_features[:, 3:, 1:] = 0.0
 
         # print("Number of points at frame initialisation : ", fused_point_cloud.shape[0])
 
         dist2 = torch.clamp_min(distCUDA2(torch.from_numpy(np.asarray(pcd.points)).float().cuda()), 0.0000001)
-        scales = torch.log(torch.sqrt(dist2))[...,None].repeat(1, 3)
-        rots = torch.zeros((fused_point_cloud.shape[0], 4), device="cuda")
-        rots[:, 0] = 1
+        new_scaling = torch.log(torch.sqrt(dist2))[...,None].repeat(1, 3)
+        new_rotation = torch.zeros((new_xyz.shape[0], 4), device="cuda")
+        new_rotation[:, 0] = 1
 
-        opacities = inverse_sigmoid(0.1 * torch.ones((fused_point_cloud.shape[0], 1), dtype=torch.float, device="cuda"))
+        new_opacities = inverse_sigmoid(0.1 * torch.ones((new_xyz.shape[0], 1), dtype=torch.float, device="cuda"))
 
-        print("XYZ: ", self._xyz.data.shape, type(self._xyz.data))
+        current_points_count = self._xyz.data.shape[0]
 
-        self._xyz = nn.Parameter(torch.cat((self._xyz.data, fused_point_cloud), dim=0).requires_grad_(True))
-        self._features_dc = nn.Parameter(torch.cat((self._features_dc.data, features[:,:,0:1].transpose(1, 2).contiguous()), dim=0).requires_grad_(True))
-        self._features_rest = nn.Parameter(torch.cat((self._features_rest.data, features[:,:,1:].transpose(1, 2).contiguous()), dim=0).requires_grad_(True))
-        self._scaling = nn.Parameter(torch.cat((self._scaling.data, scales), dim=0).requires_grad_(True))
-        self._rotation = nn.Parameter(torch.cat((self._rotation.data, rots), dim=0).requires_grad_(True))
-        self._opacity = nn.Parameter(torch.cat((self._opacity.data, opacities), dim=0).requires_grad_(True))
+        # Update the optimizer state
+        d = {"xyz": new_xyz,
+            "f_dc":  new_features[:,:,0:1].transpose(1, 2).contiguous(),
+            "f_rest": new_features[:,:,1:].transpose(1, 2).contiguous(),
+            "opacity": new_opacities,
+            "scaling" : new_scaling,
+            "rotation" : new_rotation}
+
+        optimizable_tensors = self.cat_tensors_to_optimizer(d)
+
+        self._xyz = optimizable_tensors["xyz"]
+        self._features_dc = optimizable_tensors["f_dc"]
+        self._features_rest = optimizable_tensors["f_rest"]
+        self._opacity = optimizable_tensors["opacity"]
+        self._scaling = optimizable_tensors["scaling"]
+        self._rotation = optimizable_tensors["rotation"]
+
+        self.xyz_gradient_accum = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
+        self.denom = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
         self.max_radii2D = torch.zeros((self.get_xyz.shape[0]), device="cuda")
-        print("Number of points after Extending : ", self.get_xyz.shape)
 
-    
+        new_points_count = self._xyz.data.shape[0]
+        print("Number of points in extension: ", str(new_points_count - current_points_count))
+
+
     def correspondences(self, points, normals, max_dist, max_angle, max_screen_size):
         # Build KDTree from current point cloud positions
         tree = KDTree(self._xyz.cpu().detach().numpy())
@@ -368,15 +383,18 @@ class GaussianModel:
             stored_state = self.optimizer.state.get(group['params'][0], None)
             if stored_state is not None:
 
+                # Extend the optimizer state tensors with zeros
                 stored_state["exp_avg"] = torch.cat((stored_state["exp_avg"], torch.zeros_like(extension_tensor)), dim=0)
                 stored_state["exp_avg_sq"] = torch.cat((stored_state["exp_avg_sq"], torch.zeros_like(extension_tensor)), dim=0)
 
+                # Remove the old state and update with the extended parameters
                 del self.optimizer.state[group['params'][0]]
                 group["params"][0] = nn.Parameter(torch.cat((group["params"][0], extension_tensor), dim=0).requires_grad_(True))
                 self.optimizer.state[group['params'][0]] = stored_state
 
                 optimizable_tensors[group["name"]] = group["params"][0]
             else:
+                 # If no state exists, simply concatenate and update the parameters
                 group["params"][0] = nn.Parameter(torch.cat((group["params"][0], extension_tensor), dim=0).requires_grad_(True))
                 optimizable_tensors[group["name"]] = group["params"][0]
 
@@ -405,6 +423,8 @@ class GaussianModel:
     def densify_and_split(self, grads, grad_threshold, scene_extent, N=2):
         n_init_points = self.get_xyz.shape[0]
         # Extract points that satisfy the gradient condition
+        print('Number of points before spilttting: ', n_init_points, self._xyz.shape, grads.shape)
+
         padded_grad = torch.zeros((n_init_points), device="cuda")
         padded_grad[:grads.shape[0]] = grads.squeeze()
         selected_pts_mask = torch.where(padded_grad >= grad_threshold, True, False)
@@ -446,7 +466,10 @@ class GaussianModel:
         grads = self.xyz_gradient_accum / self.denom
         grads[grads.isnan()] = 0.0
 
+        # print('Points before Densification and Cloning : ', self._xyz.shape)
         self.densify_and_clone(grads, max_grad, extent)
+
+        # print('Points before Densification and Splitting : ', self._xyz.shape)
         self.densify_and_split(grads, max_grad, extent)
 
         prune_mask = (self.get_opacity < min_opacity).squeeze()
