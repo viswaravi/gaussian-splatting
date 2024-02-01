@@ -50,7 +50,7 @@ class Scene:
             scene_info = sceneLoadTypeCallbacks["Blender"](args.source_path, args.white_background, args.eval)
         elif os.path.exists(os.path.join(args.source_path, "rgb")):
             print('Loading RGBD Scene')
-            scene_info = sceneLoadTypeCallbacks["RGBD"](args.source_path, args.eval)
+            scene_info = sceneLoadTypeCallbacks["RGBD"](args.source_path, args.eval, 8, args.resolution)
         elif os.path.exists(os.path.join(args.source_path, "sens_read")):
             print('Loading ScanNet Scene')
             scene_info = sceneLoadTypeCallbacks["ScanNet"](args.source_path, args.eval)        

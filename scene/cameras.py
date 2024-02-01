@@ -16,7 +16,7 @@ from utils.graphics_utils import getWorld2View2, getProjectionMatrix, getWorld2V
 
 class Camera(nn.Module):
     def __init__(self, colmap_id, R, T, FoVx, FoVy, image, gt_alpha_mask,
-                 image_name, uid,
+                 image_name, depth,  uid,
                  trans=np.array([0.0, 0.0, 0.0]), scale=1.0, data_device = "cuda",
                  intrinsics=None
                  ):
@@ -47,6 +47,8 @@ class Camera(nn.Module):
         else:
             self.original_image *= torch.ones((1, self.image_height, self.image_width), device=self.data_device)
 
+        self.original_depth = depth.to(self.data_device)
+
         self.zfar = 100.0
         self.znear = 0.01
 
@@ -61,6 +63,9 @@ class Camera(nn.Module):
 
     def get_intrinsics(self):
         return self.projection_matrix
+    
+    def __str__(self):
+        return "Camera: " + str(self.colmap_id) + " " + str(self.R) + " " + str(self.T) + " " + str(self.FoVx) + " " + str(self.FoVy) + " " + str(self.image_name) + " " + str(self.intrinsics)
 
 class MiniCam:
     def __init__(self, width, height, fovy, fovx, znear, zfar, world_view_transform, full_proj_transform):

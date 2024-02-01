@@ -33,13 +33,17 @@ def saveCurrentRender(viewpoint_cam, gaussians, pipeline, model_path, iteration)
 
 def showTensorDepthImage(tensor):
     image_array = tensor.cpu().numpy()
-    plt.imshow(image_array, cmap='viridis')
+    height, width = image_array.shape
+    extent=[0, width, height, 0]
+    plt.imshow(image_array, cmap='viridis', extent=extent)
     plt.colorbar()
     plt.show()
 
 def showTensorImage(image):
     raster = image.cpu().numpy()
-    plt.imshow(raster.astype(int))
+    height, width = raster.shape
+    extent=[0, width, height, 0]
+    plt.imshow(raster.astype(int), extent=extent)
     plt.show()
 
 def showGSRender(image):

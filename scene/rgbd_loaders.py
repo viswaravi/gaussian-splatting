@@ -1,9 +1,9 @@
 import os 
 import open3d as o3d
 import numpy as np
-from PIL import Image
 from scipy.spatial.transform import Rotation as ScipyRotation
 from typing import NamedTuple
+from PIL import Image
 
 class CameraInfo(NamedTuple):
     uid: int
@@ -14,6 +14,7 @@ class CameraInfo(NamedTuple):
     image: np.array
     image_path: str
     image_name: str
+    depth: np.array
     width: int
     height: int
     intrinsics: np.array
@@ -92,7 +93,7 @@ def getWorld2View(R, t, translate=np.array([0.0, 0.0, 0.0]), scale=1.0):
 
     return np.float32(world_to_camera)
 
-def readRGBDCamInfo(path):
+def readRGBDCamInfo(path, resolution_scale):
     cam_infos = []
     frame_ids = []
     camera_params = {} # Camera Intrinsic parameters
@@ -150,18 +151,32 @@ def readRGBDCamInfo(path):
                 
                 # Create Intrinsics Matrix in Homogeneous Coordinates
                 # print(rgb_camera_params)
-                cx = rgb_camera_params['cx,cy,fx,fy'][0]
-                cy = rgb_camera_params['cx,cy,fx,fy'][1]
-                fx = rgb_camera_params['cx,cy,fx,fy'][2] 
-                fy = rgb_camera_params['cx,cy,fx,fy'][3]
+                resolution_scale_factor = 1 / resolution_scale
+                cx = rgb_camera_params['cx,cy,fx,fy'][0] * resolution_scale_factor
+                cy = rgb_camera_params['cx,cy,fx,fy'][1] * resolution_scale_factor
+                fx = rgb_camera_params['cx,cy,fx,fy'][2] * resolution_scale_factor
+                fy = rgb_camera_params['cx,cy,fx,fy'][3] * resolution_scale_factor
                 rgb_intrinsic = np.array([[fx, 0, cx, 0], [0, fy, cy, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
 
                 # Extracting the camera image
+                # Load GT Image for Loss Calculation
                 image_name = 'rgb-' + frame_id + '.png'
                 image_path = os.path.join(images_path, image_name)
-                # Load GT Image for Loss Calculation
                 image = Image.open(image_path)
-                # image = None
+                # image = cv2.imread(image_path)
+                # image = np.array(image)
+
+                # # Load GT depth for Loss Calculation
+                depth_scale = 10000
+                depth_image_name = 'gt-rgb-depth-' + frame_id + '.png'
+                image_path = os.path.join(images_path, depth_image_name)
+                # depth = cv2.imread(image_path, cv2.IMREAD_ANYDEPTH)
+                # depth = np.array(depth) / depth_scale   
+                depth = Image.open(image_path)
+                depth = np.array(depth) / depth_scale
+                depth = Image.fromarray(depth)
+
+                # print(type(image), type(depth))
 
                 # Extracting the camera intrinsics
                 FovY = np.radians(rgb_camera_params['vFov'])
@@ -169,7 +184,7 @@ def readRGBDCamInfo(path):
 
                 frame_ids.append(frame_id)
                 camera_poses[frame_id] = pose
-                cam_infos.append(CameraInfo(uid=frame_id, R=R, T=T, FovY=FovY, FovX=FovX, image=image,
+                cam_infos.append(CameraInfo(uid=frame_id, R=R, T=T, FovY=FovY, FovX=FovX, image=image, depth=depth,
                             image_path=image_path, image_name=image_name, width=image.size[0], height=image.size[1], intrinsics=rgb_intrinsic))
                 
     return cam_infos, frame_ids, camera_params, camera_poses 

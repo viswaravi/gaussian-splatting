@@ -32,6 +32,7 @@ class CameraInfo(NamedTuple):
     FovY: np.array
     FovX: np.array
     image: np.array
+    depth: np.array
     image_path: str
     image_name: str
     width: int
@@ -260,9 +261,9 @@ def readNerfSyntheticInfo(path, white_background, eval, extension=".png"):
 
 
 # Dataset: Synthetic RGBD
-def readRGBDSceneInfo(path, eval, llffhold=8):
+def readRGBDSceneInfo(path, eval, llffhold=8, resolution_scale=1.0):
     # Load Camera Poses
-    cam_infos, frame_ids ,camera_params, camera_poses  = readRGBDCamInfo(path)
+    cam_infos, frame_ids ,camera_params, camera_poses  = readRGBDCamInfo(path, resolution_scale)
 
     if eval:
         train_cam_infos = [c for idx, c in enumerate(cam_infos) if idx % llffhold != 0]
