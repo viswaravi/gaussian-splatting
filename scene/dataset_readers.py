@@ -17,6 +17,7 @@ from scene.colmap_loader import read_extrinsics_text, read_intrinsics_text, qvec
     read_extrinsics_binary, read_intrinsics_binary, read_points3D_binary, read_points3D_text
 from scene.rgbd_loaders import loadPointsFromPLY, readRGBDCamInfo
 from scene.scannet_loaders import readScanNetCamInfo
+from scene.scenenet_loaders import readSceneNetCamInfo
 from utils.graphics_utils import getWorld2View2, focal2fov, fov2focal
 import numpy as np
 import json
@@ -343,10 +344,51 @@ def readScanNetSceneInfo(scene_path, eval, llffhold=8):
                            ply_path=ply_file_path)
     return scene_info
 
+# Dataset: SceneNet (Synthetic RGBD Dataset)
+def readSceneNetSceneInfo(scene_path, eval, llffhold=8):
+    # Load Camera Poses
+    cam_infos, frame_ids = readSceneNetCamInfo(scene_path)
+
+    if eval:
+        train_cam_infos = [c for idx, c in enumerate(cam_infos) if idx % llffhold != 0]
+        test_cam_infos = [c for idx, c in enumerate(cam_infos) if idx % llffhold == 0]
+    else:
+        train_cam_infos = cam_infos
+        test_cam_infos = []
+
+    nerf_normalization = getNerfppNorm(train_cam_infos)
+
+    # Load Initial Point Cloud
+    frame0 = str(frame_ids[0])
+
+    ply_path = os.path.join(scene_path, 'ply')
+    ply_file_path = os.path.join(ply_path, frame0 + ".ply")
+    # o3d_pc = loadPointsFromRGBD(images_path, frame0, ply_file_path, camera_params, camera_poses[frame0], save = True)
+    o3d_pc = loadPointsFromPLY(ply_file_path)
+    
+    # Extract data from Open3D point cloud
+    positions = np.asarray(o3d_pc.points)
+    colors = np.asarray(o3d_pc.colors)
+    normals = np.asarray(o3d_pc.normals)
+    
+    if np.max(colors) > 1:
+        colors = colors / 255.0
+
+    # Create a BasicPointCloud object
+    pcd = BasicPointCloud(points=positions, colors=colors, normals=normals)
+
+    # Return SceneInfo
+    scene_info = SceneInfo(point_cloud=pcd,
+                           train_cameras=train_cam_infos,
+                           test_cameras=test_cam_infos,
+                           nerf_normalization=nerf_normalization,
+                           ply_path=ply_file_path)
+    return scene_info
 
 sceneLoadTypeCallbacks = {
     "Colmap": readColmapSceneInfo,
     "Blender" : readNerfSyntheticInfo,
     "RGBD" : readRGBDSceneInfo,
-    "ScanNet" : readScanNetSceneInfo
+    "ScanNet" : readScanNetSceneInfo,
+    "SceneNet": readSceneNetSceneInfo
 }

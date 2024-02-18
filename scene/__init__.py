@@ -54,6 +54,9 @@ class Scene:
         elif os.path.exists(os.path.join(args.source_path, "sens_read")):
             print('Loading ScanNet Scene')
             scene_info = sceneLoadTypeCallbacks["ScanNet"](args.source_path, args.eval)        
+        elif os.path.exists(os.path.join(args.source_path, "instance")):
+            print('Loading Synthetic Scenenet Scene')
+            scene_info = sceneLoadTypeCallbacks["SceneNet"](args.source_path, args.eval)  
         else:
             assert False, "Could not recognize scene type!"
 
