@@ -36,7 +36,7 @@ $$
 # Reconstruction
 Scene reconstruction from RGBD frames is done in three steps
 
-## Points Fusion
+## 1. Points Fusion
 For every K frames this step adds new point to the scene from the current camera point of view based on the following conditions
 
 - If the current pixel has visibility value less than visibility threshold (0.5)
@@ -56,7 +56,7 @@ global coordinate systen
 
 **Opacity** -  Initialized using the inverse sigmoid function with a constant value.
 
-## Feature Tuning
+## 2. Feature Tuning
 This step fine tunes the features of newly added point around the scene where they have been added using differentiable gaussian splatting
 
 The model renders the K-2 to K frames and update the point features for N Iterations
@@ -79,5 +79,5 @@ depth_error = torch.abs(depth_map - viewpoint_cam.original_depth)
 depth_loss = (depth_error * ~invalid_depth_mask).mean()
 ```
 
-## Densification
+## 3. Densification
 This steps performs the densify and prune of all the Gaussians in the scene
