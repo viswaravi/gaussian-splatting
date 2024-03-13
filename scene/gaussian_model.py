@@ -154,7 +154,7 @@ class GaussianModel:
         self._rotation = nn.Parameter(rots.requires_grad_(True))
         self._opacity = nn.Parameter(opacities.requires_grad_(True))
         self.max_radii2D = torch.zeros((self.get_xyz.shape[0]), device="cuda")
-        self._age = torch.zeros((self.get_xyz.shape[0]), device="cuda")
+        self._age = torch.zeros((self.get_xyz.shape[0]), dtype=torch.int, device="cuda")
 
     def extendGaussiansfromPCD(self, pcd : BasicPointCloud, spatial_lr_scale : float):
         self.spatial_lr_scale = spatial_lr_scale

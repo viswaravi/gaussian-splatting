@@ -19,8 +19,8 @@ def renderGS(viewpoint_cam, gaussians, pipeline):
         # Render
         bg = torch.ones((3), device="cuda")
         render_pkg = render(viewpoint_cam, gaussians, pipeline, bg)
-        image, viewspace_point_tensor, visibility_filter, radii, raster_depth_map, visibility_map = render_pkg["render"], render_pkg["viewspace_points"], render_pkg["visibility_filter"], render_pkg["radii"], render_pkg["raster_depth"], render_pkg["visibility"]
-        return image, viewspace_point_tensor, visibility_filter, radii, raster_depth_map, visibility_map
+        image, viewspace_point_tensor, visibility_filter, radii, raster_depth_map, visibility_map, age_map = render_pkg["render"], render_pkg["viewspace_points"], render_pkg["visibility_filter"], render_pkg["radii"], render_pkg["raster_depth"], render_pkg["visibility"], render_pkg["age"]
+        return image, viewspace_point_tensor, visibility_filter, radii, raster_depth_map, visibility_map, age_map
 
 def getGaussianDepthMap(viewpoint_cam, gaussians, pipeline):
     image, viewspace_point_tensor, visibility_filter, radii, raster_depth_map, visibility_map = renderGS(viewpoint_cam, gaussians, pipeline)
