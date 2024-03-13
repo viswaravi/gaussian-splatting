@@ -110,7 +110,7 @@ def readSceneNetCamInfo(scene_path):
         print("Found Trajectory with sceneId {0} with {1} views".format(traj.render_path , len(traj.views)))
 
     print("Reading Camera Info")    
-    max_frames = 150
+    max_frames = len(traj.views)
     frame_step = 1
     cam_infos = []
     frame_ids = []
@@ -131,7 +131,7 @@ def readSceneNetCamInfo(scene_path):
         # print(pose)
 
         # Extracting the camera image
-        frame_id = view.frame_num
+        frame_id = str(view.frame_num)
         image_name = str(view.frame_num) + '.jpg'
         image_path = os.path.join(images_path, image_name)
         

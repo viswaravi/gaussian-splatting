@@ -116,7 +116,7 @@ def fetchPly(path):
     positions = np.vstack([vertices['x'], vertices['y'], vertices['z']]).T
     colors = np.vstack([vertices['red'], vertices['green'], vertices['blue']]).T / 255.0
     normals = np.vstack([vertices['nx'], vertices['ny'], vertices['nz']]).T
-    return BasicPointCloud(points=positions, colors=colors, normals=normals)
+    return BasicPointCloud(points=positions, colors=colors, normals=normals, age=None)
 
 def storePly(path, xyz, rgb):
     # Define the dtype for the structured array
@@ -359,7 +359,7 @@ def readSceneNetSceneInfo(scene_path, eval, llffhold=8):
     nerf_normalization = getNerfppNorm(train_cam_infos)
 
     # Load Initial Point Cloud
-    frame0 = str(frame_ids[0])
+    frame0 = frame_ids[0]
 
     ply_path = os.path.join(scene_path, 'ply')
     ply_file_path = os.path.join(ply_path, frame0 + ".ply")
@@ -375,7 +375,7 @@ def readSceneNetSceneInfo(scene_path, eval, llffhold=8):
         colors = colors / 255.0
 
     # Create a BasicPointCloud object
-    pcd = BasicPointCloud(points=positions, colors=colors, normals=normals)
+    pcd = BasicPointCloud(points=positions, colors=colors, normals=normals, age=None) 
 
     # Return SceneInfo
     scene_info = SceneInfo(point_cloud=pcd,
