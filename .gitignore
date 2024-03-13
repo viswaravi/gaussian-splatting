@@ -12,3 +12,4 @@ log/*
 *.ply
 *.png
 *.zip
+output/*
