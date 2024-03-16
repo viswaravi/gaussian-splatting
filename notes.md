@@ -36,7 +36,7 @@ $$
 # Reconstruction
 Scene reconstruction from RGBD frames is done in three steps
 
-## Points Fusion
+## 1. Points Fusion
 For every K frames this step adds new point to the scene from the current camera point of view based on the following conditions
 
 #### Visibility
@@ -71,7 +71,7 @@ global coordinate systen
 
 **Opacity** -  Initialized using the inverse sigmoid function with a constant value.
 
-## Feature Tuning
+## 2. Feature Tuning
 This step fine tunes the features of newly added point around the scene where they have been added using differentiable gaussian splatting
 
 The model renders the K-2 to K frames and update the point features for N Iterations
