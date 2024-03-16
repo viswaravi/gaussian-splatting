@@ -5,6 +5,7 @@
 [submodule "submodules/diff-gaussian-rasterization"]
 	path = submodules/diff-gaussian-rasterization
 	url = https://github.com/viswaravi/diff-gaussian-rasterization
+	branch = progressive-gaussians
 
 [submodule "SIBR_viewers"]
 	path = SIBR_viewers
