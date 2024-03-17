@@ -10,6 +10,5 @@ data/*
 log/*
 
 *.ply
-*.png
 *.zip
 output/*
