@@ -124,6 +124,7 @@ A keyframe frame detection method has been added. The current implementation fol
 - When new points are added to the global point cloud they will be initialized based on default initialization method but the points which are already in the scene are optimized and exhibit different behaviour (Points have much larger radius/covariance to represent the surface of an object)
 - A new technique where the newly added points are better initialized can be used for quicker optimization
 
+- Initialize new point features based on existing nearby points (Distance)
 
 ## Age paramater
 - A new age feature has been added to the gaussian points which holds the frame_id in which the point has been created from. This feature could be used effectively for better scene or keyframe detection methods.
